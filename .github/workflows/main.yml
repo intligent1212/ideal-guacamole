@@ -17,43 +17,28 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver novnc websockify wget unzip snapd curl software-properties-common dkms
+        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver novnc websockify wget unzip snapd curl software-properties-common dkms build-essential
 
-    - name: Configure Anbox Modules
+    - name: Build and Load Kernel Modules
       run: |
-        # Criando os módulos ashmem e binder manualmente
-        echo "options binder_linux devices=binder,hwbinder,vndbinder" | sudo tee /etc/modprobe.d/99-anbox.conf
-        sudo modprobe ashmem_linux
-        sudo modprobe binder_linux
+        # Baixando e construindo os módulos ashmem e binder
+        git clone https://github.com/anbox/anbox-modules.git
+        cd anbox-modules
+        # Construindo módulo binder
+        cd binder
+        make
+        sudo insmod binder_linux.ko
+        cd ..
+        # Construindo módulo ashmem
+        cd ashmem
+        make
+        sudo insmod ashmem_linux.ko
+        cd ..
+        # Instalando os módulos para serem carregados automaticamente
+        sudo cp -v binder/binder_linux.ko /lib/modules/$(uname -r)/extra/
+        sudo cp -v ashmem/ashmem_linux.ko /lib/modules/$(uname -r)/extra/
+        sudo depmod -a
 
     - name: Install Anbox
       run: |
-        sudo snap install --devmode --beta anbox
-
-    - name: Set up VNC Server
-      run: |
-        echo -e "P@ssw0rd!\nP@ssw0rd!" | vncpasswd -f > /root/.vnc/passwd
-        chmod 600 /root/.vnc/passwd
-        vncserver :1 -geometry 1280x1024 -depth 24
-
-    - name: Download and setup ngrok
-      run: |
-        wget -O ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
-        unzip ngrok.zip
-        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Start noVNC and ngrok
-      run: |
-        nohup websockify --web /usr/share/novnc/ 6080 localhost:5901 &
-        nohup ./ngrok http 6080 &
-        sleep 10
-
-    - name: Get ngrok public URL
-      run: |
-        curl -s http://localhost:4040/api/tunnels | jq -r .tunnels[0].public_url
-      env:
-        PATH: ${{ runner.temp }}
-
-    - name: Keep the workflow running
-      run: |
-        while true; do sleep 1000; done
+   
