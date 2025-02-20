@@ -17,16 +17,17 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver novnc websockify wget unzip snapd curl software-properties-common
+        sudo apt-get install -y xfce4 xfce4-goodies tightvncserver novnc websockify wget unzip snapd curl software-properties-common dkms
+
+    - name: Configure Anbox Modules
+      run: |
+        # Criando os módulos ashmem e binder manualmente
+        echo "options binder_linux devices=binder,hwbinder,vndbinder" | sudo tee /etc/modprobe.d/99-anbox.conf
+        sudo modprobe ashmem_linux
+        sudo modprobe binder_linux
 
     - name: Install Anbox
       run: |
-        sudo add-apt-repository -y ppa:morphis/anbox-support
-        sudo apt-get update
-        sudo apt-get install -y anbox-modules-dkms
-        sudo modprobe ashmem_linux
-        sudo modprobe binder_linux
-        sudo systemctl restart anbox-container-manager
         sudo snap install --devmode --beta anbox
 
     - name: Set up VNC Server
